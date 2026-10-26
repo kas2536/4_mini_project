@@ -4,19 +4,23 @@ import session from "express-session";
 import pg from "pg";
 import path from "path";
 import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import cors from "cors";
 
 const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 3000;
+app.use(cors({
+  origin: "http://localhost:5173",
+  credentials: true
+}));
 
 // PostgreSQL Connection Pool Setup
 const db = new pg.Pool({
   user: "postgres",
   host: "localhost",
   database: "BlogDB",
-  password: "password123", // (I was having a very hard time with this, so I just used a simple password for testing purposes.)
+  password: "password123", 
   port: 5432,
 });
 
@@ -59,7 +63,7 @@ app.set("views", path.join(__dirname, "views"));
 
 // GET: Signup Page
 app.get("/signup", (req, res) => {
-  res.render("signup", { error: null });
+  res.json("signup", { error: null });
 });
 
 // POST: Signup Process
@@ -68,7 +72,7 @@ app.post("/signup", async (req, res) => {
   try {
     const existingUser = await db.query("SELECT * FROM users WHERE user_id = $1", [user_id]);
     if (existingUser.rows.length > 0) {
-      return res.render("signup", { error: "User ID is already taken. Please choose another." });
+      return res.json("signup", { error: "User ID is already taken. Please choose another." });
     }
 
     await db.query(
@@ -79,13 +83,13 @@ app.post("/signup", async (req, res) => {
     res.redirect("/signin");
   } catch (err) {
     console.error(err);
-    res.render("signup", { error: "An error occurred during signup. Try again." });
+    res.json("signup", { error: "An error occurred during signup. Try again." });
   }
 });
 
 // GET: Signin Page
 app.get("/signin", (req, res) => {
-  res.render("signin", { error: null });
+  res.json("signin", { error: null });
 });
 
 // POST: Signin Process
@@ -98,7 +102,7 @@ app.post("/signin", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.render("signin", { error: "Invalid User ID or Password combination." });
+      return res.json("signin", { error: "Invalid User ID or Password combination." });
     }
 
     // Set User Session
@@ -110,7 +114,7 @@ app.post("/signin", async (req, res) => {
     res.redirect("/");
   } catch (err) {
     console.error(err);
-    res.render("signin", { error: "An error occurred during signin." });
+    res.json("signin", { error: "An error occurred during signin." });
   }
 });
 
@@ -136,7 +140,7 @@ app.get("/", async (req, res) => {
     }
 
     const result = await db.query(query, params);
-    res.render("index", { 
+    res.json("index", { 
       posts: result.rows, 
       selectedCategory 
     });
@@ -176,10 +180,10 @@ app.get("/posts/:id/edit", requireAuth, async (req, res) => {
       return res.status(403).send("Unauthorized: You can only edit your own posts.");
     }
 
-    res.render("edit", { post });
+    res.json("edit", { post });
   } catch (err) {
     console.error(err);
-    res.redirect("/");  
+    res.json("edit", { error: "An error occurred while fetching the post for edit." });
   }
 });
 
@@ -199,10 +203,10 @@ app.put("/posts/:id", requireAuth, async (req, res) => {
       "UPDATE blogs SET title = $1, body = $2, category = $3 WHERE blog_id = $4",
       [title, content, category, id]
     );
-    res.redirect("/");
+    res.json("index", { error: "Post updated successfully." });
   } catch (err) {
     console.error(err);
-    res.redirect("/");
+    res.json("index", { error: "An error occurred while updating the post." });
   }
 });
 
@@ -218,10 +222,10 @@ app.delete("/posts/:id", requireAuth, async (req, res) => {
     }
 
     await db.query("DELETE FROM blogs WHERE blog_id = $1", [id]);
-    res.redirect("/");
+    res.json("index", { error: "Post deleted successfully." });
   } catch (err) {
     console.error(err);
-    res.redirect("/");
+    res.json("index", { error: "An error occurred while deleting the post." });
   }
 });
 
